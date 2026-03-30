@@ -67,7 +67,7 @@
 ### Quick Install
 
 ```bash
-git clone https://github.com/babySAMRAT/eapx.git
+git clone https://github.com/bxbySAMRAT/eapx.git
 cd eapx
 sudo bash install.sh
 ```
