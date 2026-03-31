@@ -407,4 +407,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n")
+        print("╔══════════════════════════════════════╗")
+        print("║        🛑  EAPx Shutting Down        ║")
+        print("╠══════════════════════════════════════╣")
+        print("║  All processes stopped cleanly.      ║")
+        print("║  Check loot/ for captured data.      ║")
+        print("╚══════════════════════════════════════╝")
+        sys.exit(0)

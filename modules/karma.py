@@ -57,9 +57,12 @@ def start_karma(iface):
     _active_iface = iface
     print(f"[*] KARMA active on {iface} — listening for all probe requests...")
     print("[*] Press Ctrl+C to stop\n")
-    sniff(
-        iface=iface,
-        prn=karma_handler,
-        store=0,
-        filter="type mgt subtype probe-req"
-    )
+    try:
+        sniff(
+            iface=iface,
+            prn=karma_handler,
+            store=0,
+            filter="type mgt subtype probe-req"
+        )
+    except KeyboardInterrupt:
+        print(f"\n[*] KARMA stopped — spawned {len(captured_ssids)} fake AP(s)")

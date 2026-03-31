@@ -71,4 +71,10 @@ def launch_ap(iface, ssid, channel=6, negotiate="balanced",
 
     generate_hostapd_conf(iface, ssid, channel, negotiate, bssid)
     print("[*] Launching rogue AP... Press Ctrl+C to stop\n")
-    subprocess.run(["hostapd", "/tmp/eapx_hostapd.conf"])
+    try:
+        proc = subprocess.Popen(["hostapd", "/tmp/eapx_hostapd.conf"])
+        proc.wait()
+    except KeyboardInterrupt:
+        proc.terminate()
+        proc.wait()
+        print("\n[*] Rogue AP stopped")
