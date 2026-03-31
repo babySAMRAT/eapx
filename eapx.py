@@ -21,7 +21,7 @@ BANNER = """
 ███████╗██║  ██║██║     ██╔╝ ██╗
 ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝
   WPA2-Enterprise Attack Framework v2.0
-  github.com/babySAMRAT/eapx
+  github.com/bxbySAMRAT/eapx
   For authorized pentesting only
 """
 

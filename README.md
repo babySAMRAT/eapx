@@ -464,7 +464,7 @@ Reports are saved to `report/`:
 
 ## Author
 
-**Aryan Shetty** — [@babySAMRAT](https://github.com/babySAMRAT)
+**Aryan Shetty** — [@babySAMRAT](https://github.com/bxbySAMRAT)
 
 ---
 
