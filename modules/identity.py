@@ -243,8 +243,10 @@ def identity_handler(pkt):
 
 
 def harvest_identities(iface, duration=60):
+    is_daemon = (duration == 0)
+    dur_str = "∞ (daemon)" if is_daemon else f"{duration}s"
     print(f"\n[*] Harvesting EAP identities on {iface}")
-    print(f"[*] Duration: {duration}s | Saving to loot/identities.txt")
+    print(f"[*] Duration: {dur_str} | Saving to loot/identities.txt")
     print(f"[*] OUI vendor lookup enabled ({len(OUI_TABLE)} vendors)")
     print("[*] Press Ctrl+C to stop early\n")
 
@@ -253,10 +255,10 @@ def harvest_identities(iface, duration=60):
             iface=iface,
             prn=identity_handler,
             store=0,
-            timeout=duration,
+            timeout=None if is_daemon else duration,
             filter="ether proto 0x888e"
         )
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, OSError):
         pass
 
     print(f"\n[+] Harvested {len(harvested)} unique identities")

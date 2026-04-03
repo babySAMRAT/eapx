@@ -139,6 +139,17 @@ def generate_certs(cn="FakeRADIUS", org="Corp", country="IN",
     if fingerprint:
         print(f"    {fingerprint}")
 
+    # ── Generate DH parameters (Bug #5 fix) ──
+    dh_path = os.path.join(cert_dir, "dh.pem")
+    if not os.path.exists(dh_path):
+        print("[*] Generating DH parameters (2048-bit, this takes ~10-30s)...")
+        subprocess.run([
+            "openssl", "dhparam", "-out", dh_path, "2048"
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("[+] DH params generated")
+    else:
+        print("[+] DH params already exist — skipping")
+
 
 def generate_certs_from_clone(metadata):
     """

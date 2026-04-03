@@ -9,7 +9,7 @@
 ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝
 ```
 
-**EAPx** is an all-in-one WPA2-Enterprise (802.1X/EAP) penetration testing framework built for authorized red-team engagements. It automates the full attack chain — from network discovery, RADIUS certificate cloning, and EAP fingerprinting to evil twin deployment, credential capture, multi-stage hash cracking, and report generation.
+**EAPx** is an all-in-one WPA2-Enterprise (802.1X/EAP) penetration testing framework built for authorized red-team engagements. It automates the full attack chain — from network discovery, RADIUS certificate cloning, and EAP fingerprinting to evil twin deployment, real-time credential capture, multi-stage hash cracking, and report generation.
 
 > ⚠️ **Legal Disclaimer:** This tool is intended for **authorized security testing only**. Unauthorized use against networks you do not own or have explicit permission to test is **illegal**. The author assumes no liability for misuse.
 
@@ -18,7 +18,7 @@
 ## Table of Contents
 
 - [Features](#features)
-- [What's New in v2.0](#whats-new-in-v20)
+- [hostapd-wpe Integration](#hostapd-wpe-integration)
 - [Dual-Interface Architecture](#dual-interface-architecture)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
@@ -47,7 +47,7 @@
 |--------|-------------|
 | **Scanner** | Discovers WPA2-Enterprise (MGT) networks via `airodump-ng` |
 | **Cert Clone** | Probes the real AP's RADIUS cert and mirrors its CN/O/OU/SAN fields |
-| **Evil Twin AP** | Spawns a rogue access point with tuned hostapd (anti-retransmit) |
+| **Evil Twin AP** | Spawns a rogue AP with hostapd-wpe/hostapd + real-time credential parsing |
 | **EAP Probe** | Fingerprints EAP methods, detects EAP-TLS, identifies PEAP version |
 | **Deauth** | 802.11 deauthentication attack to force client reconnection |
 | **Channel-Hop Deauth** | Multi-channel deauth for enterprise APs spanning multiple channels |
@@ -55,46 +55,41 @@
 | **KARMA** | Auto-spawns fake APs with enterprise SSID filtering |
 | **Hostile Portal** | Captive portal phishing page that harvests domain credentials |
 | **AutoCrack** | Multi-stage cracking pipeline (hashcat + ASLEAP) with custom wordlists |
-| **Cert Wizard** | Generates fake CA + server certificates with SAN and cloned fields |
+| **Cert Wizard** | Generates fake CA + server certs with SAN, cloned fields, and DH params |
 | **PCAP Capture** | Runs tcpdump alongside attacks for full packet capture |
 | **Reporter** | Generates Markdown + JSON reports with device fingerprinting |
 
 ---
 
-## What's New in v2.0
+## hostapd-wpe Integration
 
-### 🔐 RADIUS Certificate Cloning
-The #1 reason evil twin attacks fail is cert rejection. EAPx now probes the real AP's RADIUS server certificate, extracts its CN, Organization, OU, and SAN fields, then regenerates your fake cert with identical metadata. This dramatically increases client acceptance.
+EAPx auto-detects `hostapd-wpe` (WPE = Wireless Pwnage Edition) — the patched hostapd binary with built-in credential-logging hooks. This is the same engine used by EAPHammer.
 
-### 📡 Dual-Interface Architecture
-Two separate wireless adapters — one for the rogue AP, one for deauth/scanning/harvesting. This was architecturally required since hostapd locks the AP interface exclusively.
+| Feature | Vanilla `hostapd` | `hostapd-wpe` |
+|---------|-------------------|---------------|
+| Rogue AP | ✅ | ✅ |
+| EAP identities (stdout parsing) | ✅ Limited | ✅ Full |
+| GTC plaintext passwords | ⚠️ Partial | ✅ |
+| MSCHAPv2 challenge/response hashes | ❌ | ✅ |
+| TTLS-PAP passwords | ❌ | ✅ |
+| Auto-log to file | ❌ | ✅ `/var/log/hostapd-wpe.log` |
 
-### 🔄 Multi-Stage Hash Cracking
-Three-stage cracking pipeline with automatic fallback:
-1. `rockyou.txt` + `best64.rule`
-2. `rockyou.txt` + `d3adhob0.rule`
-3. `rockyou.txt` direct (no rules)
-Plus ASLEAP support for MS-CHAPv2 challenge-response, and custom wordlist injection.
+**How it works:**
+- On startup, EAPx checks for `hostapd-wpe` in `$PATH`
+- If found → uses it automatically (full credential capture)
+- If not found → falls back to vanilla `hostapd` with stdout parsing (limited but functional)
+- A warning is printed when falling back to vanilla mode
 
-### 📊 Enhanced Identity Harvesting
-- OUI vendor lookup (200+ vendors — Apple, Intel, Samsung, Dell, etc.)
-- Anonymous identity detection (flags `anonymous@domain.com` patterns)
-- Domain hint extraction from `user@corp.local`
+**To install hostapd-wpe:**
+```bash
+# Option 1: apt (if available in your repos)
+sudo apt install hostapd-wpe
 
-### 🎯 KARMA Enterprise Filter
-Filters probe requests to only respond to enterprise-looking SSIDs. Ignores consumer noise (`AndroidAP`, `iPhone`, `DIRECT-`, etc.).
-
-### 📻 Channel-Hop Deauth
-Multi-channel deauthentication for enterprise APs that span channels 1, 6, and 11. Configurable dwell time and burst count.
-
-### 📝 Enhanced Reporting
-- Cert fingerprint and cloned cert metadata in reports
-- EAP method probe results
-- Client device fingerprinting (OUI vendor distribution)
-- Parallel JSON export for integration with Dradis, Plextrac, etc.
-
-### 🛡️ Hostapd Tuning
-Added `eap_reauth_period=0` and `fragment_size=1400` to prevent EAP retransmit storms that cause EAPOL-Start resets.
+# Option 2: Compile from source
+git clone https://github.com/s0lst1c3/hostapd-eaphammer
+cd hostapd-eaphammer
+./build.sh
+```
 
 ---
 
@@ -104,8 +99,8 @@ EAPx uses **two separate wireless interfaces** for its full attack pipeline.
 
 | Interface | Flag | Role | Example |
 |-----------|------|------|---------|
-| **AP Interface** | `-a` / `--iface-ap` | Runs the rogue AP (hostapd) | `wlan1` |
-| **Monitor Interface** | `-m` / `--iface-mon` | Deauth, scanning, EAP probing, identity harvesting | `wlan0mon` |
+| **AP Interface** | `-a` / `--iface-ap` | Runs the rogue AP (hostapd) + identity harvesting | `wlan1` |
+| **Monitor Interface** | `-m` / `--iface-mon` | Deauth, scanning, EAP probing, PCAP capture | `wlan0mon` |
 
 ```
   ┌──────────────────────────────────────────────────┐
@@ -116,14 +111,15 @@ EAPx uses **two separate wireless interfaces** for its full attack pipeline.
   │   │   wlan1 (-a)     │  │    wlan0mon (-m)     │ │
   │   │                  │  │                      │ │
   │   │  ► Rogue AP      │  │  ► Cert clone probe  │ │
-  │   │  ► hostapd       │  │  ► Deauth / Ch-hop   │ │
+  │   │  ► hostapd-wpe   │  │  ► Deauth / Ch-hop   │ │
   │   │  ► Creds capture │  │  ► Scan              │ │
-  │   │                  │  │  ► EAP Probe         │ │
-  │   │                  │  │  ► Identity Harvest   │ │
-  │   │                  │  │  ► PCAP capture      │ │
+  │   │  ► Identity      │  │  ► EAP Probe         │ │
+  │   │    Harvest       │  │  ► PCAP capture      │ │
   │   └──────────────────┘  └──────────────────────┘ │
   └──────────────────────────────────────────────────┘
 ```
+
+> **Note:** Identity harvesting runs on the **AP interface** (where clients connect), not the monitor interface. It launches as a background daemon thread alongside the rogue AP.
 
 > **Note:** Single-purpose subcommands (`scan`, `deauth`, `channel-hop`, `harvest`, `karma`, `portal`) only need **one** interface via `-i`.
 
@@ -139,6 +135,7 @@ EAPx uses **two separate wireless interfaces** for its full attack pipeline.
 - **Hardware:** **Two** wireless adapters with **monitor mode** and **packet injection**
 - **Python:** 3.10+
 - **Privileges:** Root access
+- **Recommended:** `hostapd-wpe` for full credential capture (auto-detected, optional)
 
 ### Quick Install
 
@@ -148,12 +145,17 @@ cd eapx
 sudo bash install.sh
 ```
 
+The installer will automatically attempt to install `hostapd-wpe`. If unavailable in your repos, it falls back to vanilla `hostapd` with a note on compiling from source.
+
 ### Manual Install
 
 ```bash
 sudo apt install -y hostapd aircrack-ng openssl iw net-tools \
   dnsmasq macchanger hashcat tmux python3 python3-pip \
   python3-scapy python3-flask python3-netaddr python3-colorama wordlists
+
+# Optional but STRONGLY recommended:
+sudo apt install -y hostapd-wpe
 
 sudo python3 eapx.py setup
 ```
@@ -213,6 +215,8 @@ sudo python3 eapx.py menu
 sudo python3 eapx.py setup
 ```
 
+Generates CA + server certificates **and DH parameters** (2048-bit). The DH params prevent TLS handshake failures with certain client supplicants.
+
 ---
 
 ### `scan` — Discover Enterprise Networks
@@ -255,11 +259,13 @@ sudo python3 eapx.py attack -a <ap_iface> -m <mon_iface> [options]
 2. Clone RADIUS certificate (via monitor interface)
 3. Start PCAP capture (via monitor interface)
 4. Probe EAP methods (via monitor interface)
-5. Harvest identities (via monitor interface)
+5. **Start identity harvester as background daemon** (via AP interface)
 6. Start auto-crack watcher
 7. Deauth clients (via monitor interface)
-8. Launch evil twin AP (via AP interface)
+8. **Launch evil twin AP** — hostapd-wpe parses credentials in real-time (via AP interface)
 9. Stop capture & generate report
+
+> **Key:** Steps 5 and 8 run **concurrently** — the harvester is a daemon thread that captures identities while the AP serves clients. Credentials from hostapd/hostapd-wpe stdout are also parsed in real-time during step 8.
 
 ---
 
@@ -302,7 +308,7 @@ sudo python3 eapx.py channel-hop -i wlan0mon \
 sudo python3 eapx.py harvest -i <interface> [-t <seconds>]
 ```
 
-Now includes OUI vendor lookup and anonymous identity detection.
+Includes OUI vendor lookup, anonymous identity detection, and domain hint extraction. During `attack` mode, harvesting runs as a background daemon on the AP interface.
 
 ---
 
@@ -373,23 +379,23 @@ Generates both **Markdown** and **JSON** reports. Includes:
                     │          ADAPTER ASSIGNMENT              │
                     │                                         │
                     │  wlan0mon (-m) ──► Scan, Cert Clone,    │
-                    │                    Probe, Deauth,       │
-                    │                    Harvest, PCAP        │
-                    │  wlan1    (-a) ──► Rogue AP, Creds      │
+                    │                    Probe, Deauth, PCAP  │
+                    │  wlan1    (-a) ──► Rogue AP, Creds,     │
+                    │                    Identity Harvest     │
                     └─────────────────────────────────────────┘
 
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
 │  1. Setup    │ ──▶│  2. Scan     │ ──▶│  3. Clone    │
 │ (certs/deps) │    │ (find MGT   │    │ (RADIUS cert │
-│              │    │  networks)  │    │  metadata)   │
+│ (+DH params) │    │  networks)  │    │  metadata)   │
 │              │    │  [wlan0mon] │    │  [wlan0mon]  │
 └──────────────┘    └──────────────┘    └──────┬───────┘
                                                │
 ┌──────────────┐    ┌──────────────┐           ▼
 │  6. Evil     │    │  5. Deauth   │    ┌──────────────┐
 │  Twin AP     │ ◀──│ (or ch-hop) │ ◀──│  4. Probe    │
-│ (rogue       │    │ (force      │    │ (EAP methods │
-│  RADIUS)     │    │  reconnect) │    │  + PEAPv0/1) │
+│ (hostapd-wpe │    │ (force      │    │ (EAP methods │
+│  + parsing)  │    │  reconnect) │    │  + PEAPv0/1) │
 │  [wlan1]     │    │  [wlan0mon] │    │  [wlan0mon]  │
 └──────┬───────┘    └──────────────┘    └──────────────┘
        │
@@ -398,6 +404,8 @@ Generates both **Markdown** and **JSON** reports. Includes:
 ┌───────────┐ ┌──────────┐  ┌──────────┐
 │ Harvest   │ │ Capture  │  │ Portal   │
 │ Identities│ │ Hashes   │  │ Phish    │
+│ (daemon)  │ │ (real-   │  │          │
+│ [wlan1]   │ │  time)   │  │          │
 │ +OUI+Anon │ │ +PCAP    │  │          │
 └───────────┘ └────┬─────┘  └──────────┘
                    ▼
@@ -415,27 +423,27 @@ Generates both **Markdown** and **JSON** reports. Includes:
 ```
 eapx/
 ├── eapx.py                # Main entry point (CLI + interactive menu)
-├── install.sh              # One-command installer for Kali
+├── install.sh              # One-command installer (includes hostapd-wpe)
 ├── uninstall.sh            # Clean uninstaller
 ├── requirement.txt         # Python dependencies
 ├── README.md
 ├── .gitignore
 ├── modules/
 │   ├── scanner.py          # WPA2-Enterprise network discovery
-│   ├── cert_clone.py       # RADIUS certificate cloning (NEW)
-│   ├── cert_wizard.py      # Certificate generation (supports cloned fields)
-│   ├── rogue_ap.py         # Evil twin AP (tuned hostapd)
+│   ├── cert_clone.py       # RADIUS certificate cloning
+│   ├── cert_wizard.py      # Certificate generation (+ DH params)
+│   ├── rogue_ap.py         # Evil twin AP (hostapd-wpe + real-time parsing)
 │   ├── eap_probe.py        # EAP fingerprinting (TLS detect, PEAPv0/v1)
 │   ├── deauth.py           # 802.11 deauthentication
-│   ├── channel_hop.py      # Channel-hopping deauth (NEW)
+│   ├── channel_hop.py      # Channel-hopping deauth
 │   ├── identity.py         # Identity harvesting (OUI, anonymous detect)
 │   ├── karma.py            # KARMA attack (enterprise filter)
 │   ├── hostile_portal.py   # Captive portal credential phishing
 │   ├── autocrack.py        # Multi-stage hash cracking + ASLEAP
-│   └── pcap_capture.py     # Packet capture wrapper (NEW)
+│   └── pcap_capture.py     # Packet capture wrapper
 ├── report/
 │   └── reporter.py         # Report generator (MD + JSON)
-├── certs/                  # Generated certificates (git-ignored)
+├── certs/                  # Generated certificates + DH params (git-ignored)
 └── loot/                   # Captured credentials (git-ignored)
 ```
 
@@ -449,8 +457,8 @@ All captured data is saved to `loot/`:
 |------|----------|
 | `identities.txt` | Harvested EAP usernames with MACs, vendors, and timestamps |
 | `identities_summary.json` | Structured identity data with OUI and domain hints |
-| `hashes.txt` | Captured NTLM/MSCHAPv2 challenge-response hashes |
-| `cracked_passwords.txt` | Successfully cracked passwords (with crack stage) |
+| `hashes.txt` | Captured MSCHAPv2 challenge-response hashes (hashcat 5500 format) |
+| `cracked_passwords.txt` | Successfully cracked passwords (GTC plaintext, PAP, cracked hashes) |
 | `ad_creds.txt` | Portal-captured domain credentials |
 | `eap_methods.txt` | Detected EAP methods, PEAP version, TLS-only flag |
 | `radius_cert_metadata.json` | Cloned RADIUS cert metadata |

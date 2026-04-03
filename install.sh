@@ -35,6 +35,15 @@ apt install -y \
   python3-netaddr python3-colorama \
   wordlists
 
+echo -e "${YELLOW}[*] Attempting to install hostapd-wpe (enhanced credential capture)...${NC}"
+if apt install -y hostapd-wpe 2>/dev/null; then
+  echo -e "${GREEN}[+] hostapd-wpe installed — full credential capture enabled${NC}"
+else
+  echo -e "${YELLOW}[!] hostapd-wpe not available in repos — using vanilla hostapd${NC}"
+  echo -e "${YELLOW}[!] For full credential capture, compile from:${NC}"
+  echo -e "${YELLOW}    https://github.com/s0lst1c3/hostapd-eaphammer${NC}"
+fi
+
 echo -e "${YELLOW}[*] Decompressing rockyou.txt...${NC}"
 [ -f /usr/share/wordlists/rockyou.txt.gz ] && \
   gunzip /usr/share/wordlists/rockyou.txt.gz
